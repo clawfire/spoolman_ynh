@@ -1,0 +1,82 @@
+#:schema https://raw.githubusercontent.com/YunoHost/apps/main/schemas/manifest.v2.schema.json
+
+packaging_format = 2
+
+id = "spoolman"
+name = "Spoolman"
+description.en = "Keep track of your inventory of 3D-printer filament spools"
+description.fr = "Gérez votre stock de bobines de filament pour imprimante 3D"
+
+version = "0.27.0~ynh1"
+
+maintainers = ["clawfire"]
+
+[upstream]
+license = "MIT"
+userdoc = "https://github.com/Donkie/Spoolman/wiki"
+code = "https://github.com/Donkie/Spoolman"
+fund = "https://github.com/sponsors/Donkie"
+
+[integration]
+yunohost = ">= 12.1.17"
+helpers_version = "2.1"
+architectures = ["amd64", "arm64"]
+multi_instance = true
+
+# Spoolman has no user accounts at all: access is controlled by YunoHost permissions only
+ldap = "not_relevant"
+sso = "not_relevant"
+
+disk = "400M"
+ram.build = "300M"
+ram.runtime = "150M"
+
+[install]
+    [install.domain]
+    type = "domain"
+
+    [install.path]
+    type = "path"
+    default = "/spoolman"
+
+    [install.init_main_permission]
+    # Spoolman has no login of its own: keep it private by default
+    type = "group"
+    default = "all_users"
+
+[resources]
+    [resources.sources]
+
+    [resources.sources.main]
+    # Prebuilt release archive: backend + already-compiled web clients
+    url = "https://github.com/Donkie/Spoolman/releases/download/v0.27.0/spoolman.zip"
+    sha256 = "bcc961af4c20d7ad7f1740f5609cd3efd94c4556baafaeba5036122dd7e46704"
+    in_subdir = false
+    format = "zip"
+
+    autoupdate.strategy = "latest_github_release"
+    autoupdate.asset = "^spoolman\\.zip$"
+
+    [resources.system_user]
+
+    [resources.install_dir]
+    group = "www-data:r-x"
+
+    [resources.data_dir]
+
+    [resources.permissions]
+    main.url = "/"
+
+    # The REST API used by Klipper/Moonraker, OctoPrint, Home Assistant...
+    # Those clients cannot log in through the YunoHost portal, so the admin
+    # may open this one to visitors on its own, without exposing the web UI.
+    api.url = "/api"
+    api.show_tile = false
+    api.auth_header = false
+    api.allowed = "all_users"
+
+    [resources.ports]
+    main.default = 7912
+
+    [resources.apt]
+    packages = "python3-venv, python3-dev, sqlite3"

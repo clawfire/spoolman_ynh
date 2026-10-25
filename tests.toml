@@ -1,0 +1,9 @@
+#:schema https://raw.githubusercontent.com/YunoHost/apps/main/schemas/tests.v1.schema.json
+
+test_format = 1.0
+
+[default]
+
+    # All standard tests apply (install root/subdir, multi-instance,
+    # private/public, upgrade, backup/restore, change_url):
+    # nothing to exclude, no special args.

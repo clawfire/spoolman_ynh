@@ -1,0 +1,79 @@
+#!/bin/bash
+
+#=================================================
+# IMPORT GENERIC HELPERS
+#=================================================
+
+source _common.sh
+source /usr/share/yunohost/helpers
+
+# Consumed by ynh_config_add: replaces __BASE_PATH__ in conf/.env
+# shellcheck disable=SC2034
+base_path="$(_spoolman_base_path)"
+
+#=================================================
+# SNAPSHOT THE DATABASE, THEN STOP SYSTEMD SERVICE
+#=================================================
+ynh_script_progression "Stopping $app's systemd service..."
+
+# The core's safety backup skips $data_dir, and the new version may migrate the
+# database on first start: keep a consistent copy of it in $data_dir/backups.
+_spoolman_snapshot_db || ynh_print_warn "Could not snapshot the database before upgrading (is $app running?)"
+
+ynh_systemctl --service="$app" --action="stop"
+
+#=================================================
+# DOWNLOAD, CHECK AND UNPACK SOURCE
+#=================================================
+ynh_script_progression "Upgrading source files..."
+
+ynh_setup_source --dest_dir="$install_dir" --full_replace
+
+chown -R "$app:www-data" "$install_dir"
+
+#=================================================
+# INSTALL PYTHON DEPENDENCIES
+#=================================================
+ynh_script_progression "Installing Python dependencies (this may take a while)..."
+
+_spoolman_build_venv
+
+#=================================================
+# UPDATE A CONFIG FILE
+#=================================================
+ynh_script_progression "Updating $app's configuration files..."
+
+ynh_config_add --template=".env" --destination="$install_dir/.env"
+chmod 400 "$install_dir/.env"
+chown "$app:$app" "$install_dir/.env"
+
+mkdir -p "$data_dir/backups"
+chown -R "$app:$app" "$data_dir"
+
+mkdir -p "/var/log/$app"
+chown -R "$app:$app" "/var/log/$app"
+
+#=================================================
+# REAPPLY SYSTEM CONFIGURATION
+#=================================================
+ynh_script_progression "Upgrading system configurations related to $app..."
+
+ynh_config_add_nginx
+
+ynh_config_add_systemd
+
+yunohost service add "$app" --description="Spoolman filament inventory" --log="/var/log/$app/spoolman.log"
+
+#=================================================
+# START SYSTEMD SERVICE
+#=================================================
+ynh_script_progression "Starting $app's systemd service..."
+
+# Database migrations, if any, run during this start
+ynh_systemctl --service="$app" --action="start" --wait_until="Application startup complete" --log_path="systemd" --timeout=180
+
+#=================================================
+# END OF SCRIPT
+#=================================================
+
+ynh_script_progression "Upgrade of $app completed"
